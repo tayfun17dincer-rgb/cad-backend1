@@ -267,10 +267,17 @@ function calculateBounds(entities) {
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
 
+  // İlk geçiş: sadece LINE ve CIRCLE entity'leri say
+  let validCount = 0;
   for (const e of entities) {
+    if (e.type !== 'LINE' && e.type !== 'CIRCLE' && e.type !== 'ARC') continue;
+    
     const p = e.properties;
     const xs = [p.x, p.x2].filter(v => v !== undefined && isFinite(v));
     const ys = [p.y, p.y2].filter(v => v !== undefined && isFinite(v));
+
+    if (xs.length === 0 || ys.length === 0) continue;
+    validCount++;
 
     for (const x of xs) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
     for (const y of ys) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
@@ -283,10 +290,50 @@ function calculateBounds(entities) {
     }
   }
 
-  if (!isFinite(minX)) return { minX: 0, maxX: 100, minY: 0, maxY: 100 };
+  if (!isFinite(minX) || validCount === 0) {
+    return { minX: 0, maxX: 100, minY: 0, maxY: 100 };
+  }
 
-  const padX = (maxX - minX) * 0.1;
-  const padY = (maxY - minY) * 0.1;
+  // Çok büyük bounds kontrolü - muhtemelen hatalı koordinatlar
+  const width = maxX - minX;
+  const height = maxY - minY;
+
+  if (width > 1e6 || height > 1e6) {
+    console.log(`⚠️ Suspiciously large bounds: ${width.toFixed(0)}x${height.toFixed(0)}`);
+    console.log(`   MinX: ${minX}, MaxX: ${maxX}, MinY: ${minY}, MaxY: ${maxY}`);
+    
+    // Medyan hesapla - outlier'ları at
+    const allX = [];
+    const allY = [];
+    
+    for (const e of entities) {
+      if (e.type !== 'LINE' && e.type !== 'CIRCLE') continue;
+      const p = e.properties;
+      if (p.x !== undefined && isFinite(p.x)) allX.push(p.x);
+      if (p.y !== undefined && isFinite(p.y)) allY.push(p.y);
+      if (p.x2 !== undefined && isFinite(p.x2)) allX.push(p.x2);
+      if (p.y2 !== undefined && isFinite(p.y2)) allY.push(p.y2);
+    }
+    
+    allX.sort((a, b) => a - b);
+    allY.sort((a, b) => a - b);
+    
+    // %5 ve %95 percentile kullan (outlier'ları at)
+    const p5X = allX[Math.floor(allX.length * 0.05)];
+    const p95X = allX[Math.floor(allX.length * 0.95)];
+    const p5Y = allY[Math.floor(allY.length * 0.05)];
+    const p95Y = allY[Math.floor(allY.length * 0.95)];
+    
+    minX = p5X;
+    maxX = p95X;
+    minY = p5Y;
+    maxY = p95Y;
+    
+    console.log(`   Adjusted bounds: ${(maxX-minX).toFixed(0)}x${(maxY-minY).toFixed(0)}`);
+  }
+
+  const padX = (maxX - minX) * 0.05;
+  const padY = (maxY - minY) * 0.05;
 
   return {
     minX: minX - padX,
