@@ -223,14 +223,25 @@ function parseDXF(content) {
           case '8':  currentEntity.layer = value; layers.add(value); break;
           case '10': currentEntity.properties.x  = parseFloat(value) || 0; break;
           case '20': currentEntity.properties.y  = parseFloat(value) || 0; break;
+          case '30': currentEntity.properties.z  = parseFloat(value) || 0; break;
           case '11': currentEntity.properties.x2 = parseFloat(value) || 0; break;
           case '21': currentEntity.properties.y2 = parseFloat(value) || 0; break;
-          case '40': currentEntity.properties.radius = parseFloat(value) || 0; break;
+          case '40': 
+            currentEntity.properties.radius = parseFloat(value) || 0;
+            currentEntity.properties.height = parseFloat(value) || 0;
+            break;
           case '41': currentEntity.properties.radiusX = parseFloat(value) || 0; break;
           case '42': currentEntity.properties.radiusY = parseFloat(value) || 0; break;
           case '50': currentEntity.properties.startAngle = (parseFloat(value) || 0) * Math.PI / 180; break;
           case '51': currentEntity.properties.endAngle   = (parseFloat(value) || 0) * Math.PI / 180; break;
-          case '1':  currentEntity.properties.text = value; break;
+          case '1':  // TEXT içeriği
+          case '3':  // MTEXT içeriği (ek satırlar)
+            if (!currentEntity.properties.text) {
+              currentEntity.properties.text = value;
+            } else {
+              currentEntity.properties.text += value;
+            }
+            break;
         }
       }
 
